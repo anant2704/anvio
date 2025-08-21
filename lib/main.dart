@@ -1,5 +1,3 @@
-// 📂 anvio/lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/account.dart';
@@ -34,23 +32,18 @@ class AnvioApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.system, // Or set to ThemeMode.dark to force dark mode
       home: const StartupScreen(),
     );
   }
 
   ThemeData _buildTheme(Brightness brightness) {
-    // GitHub Dark Theme Colors
-    const ghDarkBg = Color(0xFF0d1117);
-    const ghDarkCard = Color(0xFF161b22);
-    const ghDarkAccent = Color(0xFF58a6ff);
-    const ghDarkGreen = Color(0xFF3fb950);
-
-    // Groww Light Theme Colors
-    const gwLightBg = Color(0xFFFFFFFF);
-    const gwLightCard = Color(0xFFF5F5F5);
-    const gwLightAccent = Color(0xFF00B386);
-    const gwLightText = Color(0xFF44475b);
+    // Black & White Theme Colors
+    final bgColor = brightness == Brightness.dark ? Colors.black : Colors.white;
+    final cardColor = brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7);
+    final accentColor = brightness == Brightness.dark ? Colors.white : Colors.black;
+    final textColor = brightness == Brightness.dark ? Colors.white : Colors.black;
+    final subtleTextColor = brightness == Brightness.dark ? Colors.white70 : Colors.black54;
 
     var baseTheme = ThemeData(
       brightness: brightness,
@@ -58,41 +51,41 @@ class AnvioApp extends StatelessWidget {
     );
 
     return baseTheme.copyWith(
-      scaffoldBackgroundColor: brightness == Brightness.dark ? ghDarkBg : gwLightBg,
+      scaffoldBackgroundColor: bgColor,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: brightness == Brightness.dark ? ghDarkAccent : gwLightAccent,
+        seedColor: accentColor,
         brightness: brightness,
-        primary: brightness == Brightness.dark ? ghDarkAccent : gwLightAccent,
-        secondary: brightness == Brightness.dark ? ghDarkGreen : Colors.teal,
-        surface: brightness == Brightness.dark ? ghDarkCard : gwLightCard,
-        onSurface: brightness == Brightness.dark ? Colors.white : gwLightText,
+        primary: accentColor,
+        secondary: Colors.grey, // Neutral secondary color
+        surface: cardColor,
+        onSurface: textColor,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: brightness == Brightness.dark ? Colors.white70 : gwLightText),
+        iconTheme: IconThemeData(color: subtleTextColor),
         titleTextStyle: TextStyle(
-          color: brightness == Brightness.dark ? Colors.white : gwLightText,
+          color: textColor,
           fontSize: 22,
           fontWeight: FontWeight.bold,
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: brightness == Brightness.dark ? ghDarkCard : gwLightBg,
-        selectedItemColor: brightness == Brightness.dark ? ghDarkAccent : gwLightAccent,
+        backgroundColor: cardColor,
+        selectedItemColor: accentColor,
         unselectedItemColor: Colors.grey,
         elevation: 5,
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: brightness == Brightness.dark ? ghDarkCard : gwLightCard,
+        color: cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: brightness == Brightness.dark ? ghDarkAccent : gwLightAccent,
-        foregroundColor: brightness == Brightness.dark ? Colors.black : Colors.white,
+        backgroundColor: accentColor,
+        foregroundColor: bgColor,
       ),
     );
   }

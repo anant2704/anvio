@@ -103,7 +103,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           child: Icon(Icons.account_balance, color: Theme.of(context).colorScheme.primary),
                         ),
                         title: Text(account.bankName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('A/c No. ending in ${account.accountNumber}'),
+                        subtitle: Text('A/c No. ${account.accountNumber}'),
                         trailing: Text(
                           NumberFormat.currency(locale: 'en_IN', symbol: '₹').format(account.balance),
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),

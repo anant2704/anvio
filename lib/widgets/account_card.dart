@@ -1,8 +1,5 @@
-// 📂 anvio/lib/widgets/account_card.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:glassmorphism/glassmorphism.dart';
 import '../models/account.dart';
 
 class AccountCard extends StatelessWidget {
@@ -13,27 +10,20 @@ class AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6.0),
-      child: GlassmorphicContainer(
+      child: Container(
         width: double.infinity,
         height: 120,
-        borderRadius: 16,
-        blur: 15,
-        border: 1,
-        linearGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-            Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
-          ],
-        ),
-        borderGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.3),
-            Colors.white.withValues(alpha: 0.1),
-          ],
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          // ✨ UPDATED: Gradient changed to a sleek black/charcoal style.
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.grey[900]!,
+              Colors.black,
+            ],
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -45,8 +35,8 @@ class AccountCard extends StatelessWidget {
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               Text(
-                account.bankName.toLowerCase() == 'cash' ? 'In Hand' : "A/C No. ${account.accountNumber}",
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                account.bankName.toLowerCase() == 'cash' ? 'In Hand' : "A/c No. ...${account.accountNumber}",
+                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8)),
               ),
               const Spacer(),
               Text(

@@ -15,7 +15,7 @@ import '../widgets/transaction_list_item.dart';
 import 'manual_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  final VoidCallback onInsightsTapped; // Accepts the function from MainScreen
+  final VoidCallback onInsightsTapped;
 
   const HomeScreen({super.key, required this.onInsightsTapped});
 
@@ -32,13 +32,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _initApp();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initApp();
+    });
   }
 
   Future<void> _initApp() async {
-    await _dbService.setupInitialData();
-    // Automatically sync SMS on startup
-    await _requestAndProcessSms();
+    final transactions = _dbService.getTransactions();
+    final accounts = _dbService.getAccounts();
+    if (transactions.isEmpty && accounts.any((acc) => acc.bankName.toLowerCase() != 'cash')) {
+      await _requestAndProcessSms();
+    }
   }
 
   Future<void> _requestAndProcessSms() async {
@@ -144,10 +148,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 return SizedBox(
                   height: 120,
                   child: PageView.builder(
-                    controller: PageController(viewportFraction: 0.46),
+                    padEnds: false,
+                    controller: PageController(viewportFraction: 0.48), // Slightly adjusted for better spacing
                     itemCount: accounts.length,
                     itemBuilder: (context, index) {
-                      return AccountCard(account: accounts[index]);
+                      // ✨ FIX: Conditional padding to align the first card to the left
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          left: index == 0 ? 16.0 : 8.0, 
+                          right: 8.0
+                        ),
+                        child: AccountCard(account: accounts[index]),
+                      );
                     },
                   ),
                 );

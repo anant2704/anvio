@@ -94,7 +94,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
             return ListTile(
               leading: const Icon(Icons.account_balance),
               title: Text(account.bankName),
-              subtitle: Text("$account.accountNumber"),
+              subtitle: Text("$Account.accountNumber"),
               onTap: () {
                 setState(() {
                   if (isFromAccount) {
