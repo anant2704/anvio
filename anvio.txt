@@ -1,0 +1,115 @@
+Anvio: Project Plan & Feature Roadmap
+1. App Mission & Core Principles
+App Name: Anvio
+
+Mission: To provide users with a powerful, intelligent, and automatic expense tracker that prioritizes absolute privacy and user control. Anvio will help users effortlessly understand their spending, manage budgets, and achieve their financial goals without ever compromising their data.
+
+Core Principle: Anvio is a 100% local-first application. All data processing, including SMS parsing and transaction categorization, occurs exclusively on the user's device. No financial or personal data is ever sent to or stored on a server.
+
+2. Core Technology Engine
+The heart of Anvio is its ability to automatically capture and categorize expenses without manual input. This will be achieved through a sophisticated on-device engine.
+
+A. SMS Parsing:
+
+The app will request permission to read the user's SMS inbox.
+
+A robust parsing engine will be developed to scan for transactional messages from banks, credit cards, and UPI services.
+
+The parser will intelligently extract key details: amount, merchant, date, and the bank account used.
+
+B. On-Device Categorization Engine:
+Anvio will use a three-tiered system to accurately categorize expenses locally.
+
+Rule-Based Dictionary: The app will be bundled with a comprehensive, pre-defined list of rules that map common merchant names to expense categories (e.g., "Zomato" -> "Food", "PVR Cinemas" -> "Entertainment").
+
+User-Defined Rules: Users will have the power to create their own custom rules for recurring or specific transactions (e.g., "All payments to 'Landlord Name' should be categorized as 'Rent'"). These rules are stored securely on the device.
+
+On-Device Machine Learning: The app will include a lightweight, pre-trained machine learning model (using TensorFlow Lite/Core ML). This model will learn from the user's manual categorizations over time. If a user categorizes a payment to "Sagar's Kitchen" as "Food," the model learns this preference and will automatically apply it in the future, becoming more personalized and accurate with use.
+
+3. Finalized Feature Set
+This is the complete list of features to be implemented in Anvio.
+
+A. Insights & Analytics
+Visual Reports: Interactive charts (Pie, Bar, Line) to visualize spending by category, compare monthly expenses, and track account balance trends.
+
+Search & Filter: A powerful search function to find any transaction, with filters for date range, category, account, and amount.
+
+B. Proactive Financial Management (Category 2)
+Budgeting:
+
+Category Budgets: Users can set monthly spending limits for specific categories (e.g., "Shopping"). The app will display progress and send alerts when a budget is nearing its limit.
+
+Overall Budget: A total monthly spending limit.
+
+Savings Goals: Users can create and track financial goals (e.g., "Vacation Fund," "New Laptop") with target amounts.
+
+Subscription Tracker: Automatically detects and lists recurring payments (e.g., Netflix, Spotify) to help users manage their subscriptions.
+
+C. Essential Utilities & Data Management (Category 3)
+Manual Entries: A critical feature allowing users to add transactions paid for in cash or to log income.
+
+Local Backup & Restore: Anvio will allow users to create an encrypted backup of their data. This file can be exported and saved to the user's personal cloud storage (Google Drive, iCloud Drive) and later imported to restore data on a new device.
+
+Export Data: Functionality to export transaction data as a CSV or Excel file for personal analysis.
+
+D. User Experience & Customization (Category 4)
+Security: The app will be secured with a Passcode, Fingerprint, or Face ID lock.
+
+Custom Categories: Users can create, edit, and delete their own expense categories, complete with custom names and icons.
+
+Dark Mode: A sleek, modern dark theme for the user interface.
+
+Split Transactions: Allows a single transaction to be split into multiple categories (e.g., a supermarket bill can be split between "Groceries" and "Household Items").
+
+4. Suggested Development Roadmap
+A phased approach is recommended to ensure a stable and feature-rich release.
+
+Phase 1: Minimum Viable Product (MVP)
+
+Goal: Launch a functional, secure, and useful app.
+
+Features:
+
+Core SMS Parsing Engine.
+
+Rule-Based & User-Defined Categorization.
+
+Manual Entries.
+
+Basic Visual Reports (Pie Chart).
+
+Passcode / Biometric Lock.
+
+Custom Categories.
+
+Phase 2: Core Feature Expansion
+
+Goal: Transform the app into a powerful financial planning tool.
+
+Features:
+
+Implement the full Budgeting system.
+
+Add Savings Goals.
+
+Introduce the Local Backup & Restore feature.
+
+Implement the On-Device Machine Learning model.
+
+Add the Optional Dictionary Updates feature.
+
+Phase 3: Polish & Advanced Functionality
+
+Goal: Refine the user experience and add advanced features.
+
+Features:
+
+Subscription Tracker.
+
+Split Transactions.
+
+Dark Mode.
+
+Export Data (CSV/Excel) for rule - based dictionary.
+
+Advanced visual reports and filters.
