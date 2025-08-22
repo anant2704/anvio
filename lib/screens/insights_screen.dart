@@ -1,111 +1,143 @@
-// 📂 anvio/lib/screens/insights_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:csv/csv.dart';
+import 'dart:io';
+import '../models/transaction.dart';
+import '../models/category.dart';
+import '../services/database_service.dart';
+import 'manage_categories_screen.dart';
+import 'subscriptions_screen.dart';
 
 class InsightsScreen extends StatelessWidget {
   const InsightsScreen({super.key});
 
+  Future<void> _exportToCsv(BuildContext context) async {
+    final dbService = DatabaseService();
+    final transactions = dbService.getTransactions();
+
+    List<List<dynamic>> rows = [];
+    rows.add(["Date", "Title", "Amount", "Type", "Category", "Account"]);
+
+    for (var tx in transactions) {
+      rows.add([
+        DateFormat('yyyy-MM-dd').format(tx.date),
+        tx.title,
+        tx.amount,
+        tx.type.toString().split('.').last,
+        tx.category.name,
+        tx.account?.bankName ?? 'N/A'
+      ]);
+    }
+
+    String csv = const ListToCsvConverter().convert(rows);
+
+    final directory = await getApplicationDocumentsDirectory();
+    final path = "${directory.path}/anvio_transactions.csv";
+    final file = File(path);
+    await file.writeAsString(csv);
+
+    await Share.shareXFiles([XFile(path)], text: 'Here are my Anvio transactions.');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final DatabaseService dbService = DatabaseService();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Your Financial Insights"),
         centerTitle: false,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildInsightCard(
-            context,
-            title: "AI Insight",
-            content: "You've spent 20% more on Food this month compared to last month.",
-            icon: Icons.auto_awesome,
-            color: Colors.orange,
-          ),
-          const SizedBox(height: 24),
-          Text("Spending by Category", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: PieChart(
-              PieChartData(
-                sections: [
-                  PieChartSectionData(color: Colors.orange, value: 40, title: '40%', radius: 50),
-                  PieChartSectionData(color: Colors.blue, value: 30, title: '30%', radius: 50),
-                  PieChartSectionData(color: Colors.purple, value: 15, title: '15%', radius: 50),
-                  PieChartSectionData(color: Colors.red, value: 15, title: '15%', radius: 50),
-                ],
-                centerSpaceRadius: 40,
+      body: ValueListenableBuilder(
+        valueListenable: Hive.box<Transaction>('transactions').listenable(),
+        builder: (context, box, _) {
+          final transactions = dbService.getTransactions();
+          final expenseTransactions = transactions.where((tx) => tx.type == TransactionType.expense).toList();
+
+          Map<String, double> categorySpending = {};
+          double totalExpenses = 0.0;
+          for (var tx in expenseTransactions) {
+            totalExpenses += tx.amount;
+            categorySpending.update(tx.category.name, (value) => value + tx.amount, ifAbsent: () => tx.amount);
+          }
+
+          final pieChartSections = categorySpending.entries.map((entry) {
+            final category = dbService.getCategoryByName(entry.key);
+            return PieChartSectionData(
+              color: category.color,
+              value: entry.value,
+              title: '${(entry.value / totalExpenses * 100).toStringAsFixed(0)}%',
+              radius: 60,
+              titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            );
+          }).toList();
+
+          return ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              Text("Spending by Category", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 200,
+                child: pieChartSections.isEmpty
+                    ? const Center(child: Text("No expenses to show."))
+                    : PieChart(PieChartData(sections: pieChartSections, centerSpaceRadius: 40)),
               ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text("Monthly Trends", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                barGroups: [
-                  BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: 8, color: Colors.purple)]),
-                  BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: 10, color: Colors.purple)]),
-                  BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: 14, color: Colors.purple)]),
-                  BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: 15, color: Colors.purple)]),
-                ],
-                titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) => Text("Week ${value.toInt()+1}"))),
-                ),
+              const SizedBox(height: 16),
+              // ✨ NEW: Legend for the pie chart
+              _buildLegend(categorySpending, dbService),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.subscriptions_outlined),
+                title: const Text('Subscription Tracker'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SubscriptionsScreen())),
               ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text("Achievements", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          _buildAchievementCard(title: "Budget Master", subtitle: "Stayed within budget for 3 months in a row!", icon: Icons.military_tech, achieved: true),
-          _buildAchievementCard(title: "Savings Streak", subtitle: "Saved money for 7 consecutive days.", icon: Icons.local_fire_department, achieved: false),
-        ],
+              ListTile(
+                leading: const Icon(Icons.category_outlined),
+                title: const Text('Manage Categories'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCategoriesScreen())),
+              ),
+              ListTile(
+                leading: const Icon(Icons.upload_file_outlined),
+                title: const Text('Export to CSV'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _exportToCsv(context),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildInsightCard(BuildContext context, {required String title, required String content, required IconData icon, required Color color}) {
-    return Card(
-      color: color.withValues(alpha: 0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
+  // ✨ NEW: Helper widget to build the pie chart legend
+  Widget _buildLegend(Map<String, double> data, DatabaseService dbService) {
+    return Wrap(
+      spacing: 16.0,
+      runSpacing: 8.0,
+      children: data.entries.map((entry) {
+        final category = dbService.getCategoryByName(entry.key);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-                  const SizedBox(height: 4),
-                  Text(content),
-                ],
-              ),
+            Container(
+              width: 12,
+              height: 12,
+              color: category.color,
             ),
+            const SizedBox(width: 6),
+            Text(category.name),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAchievementCard({required String title, required String subtitle, required IconData icon, required bool achieved}) {
-    return Card(
-      color: achieved ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-      child: ListTile(
-        leading: Icon(icon, color: achieved ? Colors.green : Colors.grey),
-        title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: achieved ? Colors.green : Colors.grey)),
-        subtitle: Text(subtitle, style: TextStyle(color: achieved ? Colors.green.shade900 : Colors.grey.shade700)),
-      ),
+        );
+      }).toList(),
     );
   }
 }

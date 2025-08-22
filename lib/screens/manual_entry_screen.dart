@@ -1,6 +1,5 @@
-// 📂 anvio/lib/screens/manual_entry_screen.dart
-
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // ✨ NEW: Added missing import for DateFormat
 import '../models/account.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
@@ -17,6 +16,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
+  final _notesController = TextEditingController();
   final DatabaseService _dbService = DatabaseService();
   
   TransactionType _selectedType = TransactionType.expense;
@@ -43,6 +43,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -77,6 +78,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
         type: _selectedType,
         accountKey: _fromAccount?.key,
         toAccountKey: _toAccount?.key,
+        notes: _notesController.text,
       );
       _dbService.addTransaction(newTransaction);
       Navigator.pop(context);
@@ -94,7 +96,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
             return ListTile(
               leading: const Icon(Icons.account_balance),
               title: Text(account.bankName),
-              subtitle: Text("$Account.accountNumber"),
+              subtitle: Text("...${account.accountNumber}"),
               onTap: () {
                 setState(() {
                   if (isFromAccount) {
@@ -137,6 +139,18 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Color getToggleBgColor(TransactionType type) {
+      if (type == TransactionType.expense) return Colors.red.withOpacity(0.2);
+      if (type == TransactionType.income) return Colors.green.withOpacity(0.2);
+      return Colors.blueGrey.withOpacity(0.2);
+    }
+
+    Color getToggleFgColor(TransactionType type) {
+      if (type == TransactionType.expense) return Colors.red;
+      if (type == TransactionType.income) return Colors.green;
+      return Colors.blueGrey;
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Add Transaction')),
       body: Form(
@@ -145,12 +159,41 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Transaction Type", style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 120,
+                      child: Center(
+                        child: TextFormField(
+                          controller: _amountController,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            hintText: '0',
+                            prefixText: '₹ ',
+                            prefixStyle: TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.5),
+                            ),
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) return 'Please enter an amount';
+                            if (double.tryParse(value) == null) return 'Please enter a valid number';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ),
+                    
                     SizedBox(
                       width: double.infinity,
                       child: SegmentedButton<TransactionType>(
@@ -161,69 +204,60 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                         ],
                         selected: {_selectedType},
                         onSelectionChanged: (newSelection) { setState(() { _selectedType = newSelection.first; }); },
+                        style: SegmentedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.surface,
+                          foregroundColor: Theme.of(context).textTheme.bodySmall?.color,
+                          selectedBackgroundColor: getToggleBgColor(_selectedType),
+                          selectedForegroundColor: getToggleFgColor(_selectedType),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    if (_selectedType != TransactionType.transfer)
+                    if (_selectedType == TransactionType.transfer) ...[
+                      _buildPickerTile(
+                        label: 'From',
+                        value: '${_fromAccount?.bankName} (...${_fromAccount?.accountNumber})',
+                        icon: Icons.arrow_circle_up_outlined,
+                        onTap: () => _showAccountPicker(isFromAccount: true),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildPickerTile(
+                        label: 'To',
+                        value: '${_toAccount?.bankName} (...${_toAccount?.accountNumber})',
+                        icon: Icons.arrow_circle_down_outlined,
+                        onTap: () => _showAccountPicker(isFromAccount: false),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(labelText: 'Notes (Optional)'),
+                      ),
+                    ] else ...[
                       TextFormField(
                         controller: _titleController,
                         decoration: const InputDecoration(labelText: 'Title (e.g., Coffee, Salary)'),
                         validator: (value) => (value == null || value.isEmpty) ? 'Please enter a title' : null,
                       ),
-                    
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _amountController,
-                      decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ '),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Please enter an amount';
-                        if (double.tryParse(value) == null) return 'Please enter a valid number';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (_accounts.isNotEmpty) ...[
-                      if (_selectedType == TransactionType.transfer) ...[
-                        _buildPickerTile(
-                          label: 'From Account',
-                          value: '${_fromAccount?.bankName} (${_fromAccount?.accountNumber})',
-                          icon: Icons.arrow_upward,
-                          onTap: () => _showAccountPicker(isFromAccount: true),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildPickerTile(
-                          label: 'To Account',
-                          value: '${_toAccount?.bankName} (...${_toAccount?.accountNumber})',
-                          icon: Icons.arrow_downward,
-                          onTap: () => _showAccountPicker(isFromAccount: false),
-                        ),
-                      ] else ...[
-                        _buildPickerTile(
-                          label: 'Account',
-                          value: '${_fromAccount?.bankName} (${_fromAccount?.accountNumber})',
-                          icon: Icons.account_balance_outlined,
-                          onTap: () => _showAccountPicker(isFromAccount: true),
-                        ),
-                      ],
                       const SizedBox(height: 16),
-                    ],
-                    
-                    if (_selectedType != TransactionType.transfer) ...[
+                      _buildPickerTile(
+                        label: 'Account',
+                        value: '${_fromAccount?.bankName} (...${_fromAccount?.accountNumber})',
+                        icon: Icons.account_balance_outlined,
+                        onTap: () => _showAccountPicker(isFromAccount: true),
+                      ),
+                      const SizedBox(height: 16),
                       _buildPickerTile(
                         label: 'Category',
                         value: _selectedCategory?.name ?? 'Select a category',
                         icon: _selectedCategory?.icon ?? Icons.category_outlined,
                         onTap: _showCategoryPicker,
                       ),
-                      const SizedBox(height: 16),
                     ],
-
+                    const SizedBox(height: 16),
                     _buildPickerTile(
                       label: 'Date',
-                      value: '${_selectedDate.toLocal()}'.split(' ')[0],
+                      value: DateFormat('MMMM d, yyyy').format(_selectedDate),
                       icon: Icons.calendar_today_outlined,
                       onTap: () => _selectDate(context),
                     ),
@@ -248,18 +282,18 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: Colors.grey.withOpacity(0.2)),
         ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.grey[600]),
+            Icon(icon, color: Theme.of(context).textTheme.bodySmall?.color),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
                 const SizedBox(height: 2),
                 Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               ],

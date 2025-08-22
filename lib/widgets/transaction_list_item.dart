@@ -1,7 +1,11 @@
+// 📂 anvio/lib/widgets/transaction_list_item.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../screens/edit_transaction_screen.dart';
+import '../services/database_service.dart';
 
 class TransactionListItem extends StatelessWidget {
   final Transaction transaction;
@@ -13,9 +17,9 @@ class TransactionListItem extends StatelessWidget {
     final isExpense = transaction.type == TransactionType.expense;
     final isTransfer = transaction.type == TransactionType.transfer;
     
-    final amountColor = isExpense ? 
-      (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black) : 
-      (isTransfer ? Colors.blueGrey : Colors.green.shade600);
+    final amountColor = isExpense 
+      ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black) 
+      : (isTransfer ? Colors.blueGrey : Colors.green.shade600);
       
     final amountPrefix = isExpense ? '- ' : (isTransfer ? '' : '+ ');
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
@@ -66,17 +70,49 @@ class TransactionListItem extends StatelessWidget {
     );
 
     return Dismissible(
-      // ✨ FIX: Changed the key from ValueKey to ObjectKey.
-      // This provides a more stable identity for each widget, preventing crashes during hot reload.
-      key: ObjectKey(transaction), 
+      key: ValueKey(transaction.key),
       direction: DismissDirection.horizontal,
       
       confirmDismiss: (direction) async {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => EditTransactionScreen(transaction: transaction)),
-        );
-        return false;
+        HapticFeedback.mediumImpact();
+
+        if (direction == DismissDirection.startToEnd) { // Swiping Right (Edit)
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => EditTransactionScreen(transaction: transaction)),
+          );
+          return false; // Prevents the item from being removed
+        } else { // Swiping Left (Delete)
+          return await showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text("Confirm Delete"),
+                content: const Text("Are you sure you want to delete this transaction?"),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text("CANCEL"),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text("DELETE", style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      },
+
+      onDismissed: (direction) {
+        if (direction == DismissDirection.endToStart) {
+          final dbService = DatabaseService();
+          dbService.deleteTransaction(transaction);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("${transaction.title} deleted.")),
+          );
+        }
       },
       
       background: Container(
@@ -86,10 +122,10 @@ class TransactionListItem extends StatelessWidget {
         child: const Icon(Icons.edit, color: Colors.white),
       ),
       secondaryBackground: Container(
-        color: Theme.of(context).colorScheme.primary,
+        color: Colors.red.shade700,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: const Icon(Icons.edit, color: Colors.white),
+        child: const Icon(Icons.delete_sweep, color: Colors.white),
       ),
       
       child: itemContent,

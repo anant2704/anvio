@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // ✨ NEW: Added missing import for DateFormat
 import '../models/account.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
@@ -64,7 +65,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
 
   void _updateTransaction() {
     if (_formKey.currentState!.validate()) {
-      // Create a copy of the old transaction to correctly revert balance changes
       final oldTransaction = Transaction(
         title: widget.transaction.title,
         amount: widget.transaction.amount,
@@ -75,7 +75,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         toAccountKey: widget.transaction.toAccountKey,
       );
 
-      // Apply new values to the transaction object being edited
       widget.transaction.title = _selectedType == TransactionType.transfer ? 'Transfer' : _titleController.text;
       widget.transaction.amount = double.parse(_amountController.text);
       widget.transaction.date = _selectedDate;
@@ -106,7 +105,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             return ListTile(
               leading: const Icon(Icons.account_balance),
               title: Text(account.bankName),
-              subtitle: Text("$account.accountNumber"),
+              subtitle: Text("...${account.accountNumber}"),
               onTap: () {
                 setState(() {
                   if (isFromAccount) {
@@ -149,6 +148,18 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Color getToggleBgColor(TransactionType type) {
+      if (type == TransactionType.expense) return Colors.red.withOpacity(0.2);
+      if (type == TransactionType.income) return Colors.green.withOpacity(0.2);
+      return Colors.blueGrey.withOpacity(0.2);
+    }
+
+    Color getToggleFgColor(TransactionType type) {
+      if (type == TransactionType.expense) return Colors.red;
+      if (type == TransactionType.income) return Colors.green;
+      return Colors.blueGrey;
+    }
+    
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Transaction')),
       body: Form(
@@ -157,12 +168,41 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Transaction Type", style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 120,
+                      child: Center(
+                        child: TextFormField(
+                          controller: _amountController,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            hintText: '0',
+                            prefixText: '₹ ',
+                            prefixStyle: TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.5),
+                            ),
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) return 'Please enter an amount';
+                            if (double.tryParse(value) == null) return 'Please enter a valid number';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ),
+                    
                     SizedBox(
                       width: double.infinity,
                       child: SegmentedButton<TransactionType>(
@@ -173,75 +213,60 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         ],
                         selected: {_selectedType},
                         onSelectionChanged: (newSelection) { setState(() { _selectedType = newSelection.first; }); },
+                        style: SegmentedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.surface,
+                          foregroundColor: Theme.of(context).textTheme.bodySmall?.color,
+                          selectedBackgroundColor: getToggleBgColor(_selectedType),
+                          selectedForegroundColor: getToggleFgColor(_selectedType),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    if (_selectedType != TransactionType.transfer)
+                    if (_selectedType == TransactionType.transfer) ...[
+                      _buildPickerTile(
+                        label: 'From',
+                        value: '${_fromAccount?.bankName} (...${_fromAccount?.accountNumber})',
+                        icon: Icons.arrow_circle_up_outlined,
+                        onTap: () => _showAccountPicker(isFromAccount: true),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildPickerTile(
+                        label: 'To',
+                        value: '${_toAccount?.bankName} (...${_toAccount?.accountNumber})',
+                        icon: Icons.arrow_circle_down_outlined,
+                        onTap: () => _showAccountPicker(isFromAccount: false),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(labelText: 'Notes (Optional)'),
+                      ),
+                    ] else ...[
                       TextFormField(
                         controller: _titleController,
                         decoration: const InputDecoration(labelText: 'Title'),
                         validator: (value) => (value == null || value.isEmpty) ? 'Please enter a title' : null,
                       ),
-                    
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _amountController,
-                      decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ '),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Please enter an amount';
-                        if (double.tryParse(value) == null) return 'Please enter a valid number';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (_accounts.isNotEmpty) ...[
-                      if (_selectedType == TransactionType.transfer) ...[
-                        _buildPickerTile(
-                          label: 'From Account',
-                          value: '${_fromAccount?.bankName} (${_fromAccount?.accountNumber})',
-                          icon: Icons.arrow_upward,
-                          onTap: () => _showAccountPicker(isFromAccount: true),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildPickerTile(
-                          label: 'To Account',
-                          value: '${_toAccount?.bankName} (${_toAccount?.accountNumber})',
-                          icon: Icons.arrow_downward,
-                          onTap: () => _showAccountPicker(isFromAccount: false),
-                        ),
-                      ] else ...[
-                        _buildPickerTile(
-                          label: 'Account',
-                          value: '${_fromAccount?.bankName} (${_fromAccount?.accountNumber})',
-                          icon: Icons.account_balance_outlined,
-                          onTap: () => _showAccountPicker(isFromAccount: true),
-                        ),
-                      ],
                       const SizedBox(height: 16),
-                    ],
-                    
-                    if (_selectedType != TransactionType.transfer) ...[
+                      _buildPickerTile(
+                        label: 'Account',
+                        value: '${_fromAccount?.bankName} (...${_fromAccount?.accountNumber})',
+                        icon: Icons.account_balance_outlined,
+                        onTap: () => _showAccountPicker(isFromAccount: true),
+                      ),
+                      const SizedBox(height: 16),
                       _buildPickerTile(
                         label: 'Category',
                         value: _selectedCategory.name,
                         icon: _selectedCategory.icon,
                         onTap: _showCategoryPicker,
                       ),
-                      const SizedBox(height: 16),
-                    ] else ...[
-                      TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(labelText: 'Notes (Optional)'),
-                      ),
-                      const SizedBox(height: 16),
                     ],
-
+                    const SizedBox(height: 16),
                     _buildPickerTile(
                       label: 'Date',
-                      value: '${_selectedDate.toLocal()}'.split(' ')[0],
+                      value: DateFormat('MMMM d, yyyy').format(_selectedDate),
                       icon: Icons.calendar_today_outlined,
                       onTap: () => _selectDate(context),
                     ),
@@ -266,18 +291,18 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: Colors.grey.withOpacity(0.2)),
         ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.grey[600]),
+            Icon(icon, color: Theme.of(context).textTheme.bodySmall?.color),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
                 const SizedBox(height: 2),
                 Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               ],

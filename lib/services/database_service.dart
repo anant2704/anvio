@@ -11,7 +11,7 @@ class DatabaseService {
   final Box _settingsBox = Hive.box('settings');
 
   Future<void> setupInitialData() async {
-    await addDefaultCategories(); // ✨ FIX: Corrected method name
+    await addDefaultCategories();
     await _createDefaultCashAccount();
   }
 
@@ -19,12 +19,14 @@ class DatabaseService {
     if (_accountBox.values.every((acc) => acc.bankName.toLowerCase() != 'cash')) {
       final cashAccount = Account(
         bankName: 'Cash',
-        accountNumber: '----',
+        accountNumber: '----', // Using a non-numeric value to avoid conflicts
         balance: 0.0,
       );
       await addAccount(cashAccount);
     }
   }
+
+  // --- Account Methods ---
 
   List<Account> getAccounts() {
     return _accountBox.values.toList();
@@ -38,6 +40,8 @@ class DatabaseService {
     await account.save();
   }
 
+  // --- Settings Methods ---
+  
   DateTime? getLastSmsScanTime() {
     final timestamp = _settingsBox.get('lastSmsScanTimestamp');
     if (timestamp != null) {
@@ -50,6 +54,8 @@ class DatabaseService {
     await _settingsBox.put('lastSmsScanTimestamp', time.millisecondsSinceEpoch);
   }
 
+  // --- Category Methods ---
+
   List<Category> getCategories() {
     return _categoryBox.values.toList();
   }
@@ -59,19 +65,30 @@ class DatabaseService {
       await _categoryBox.add(category);
     }
   }
+  
+  Future<void> updateCategory(Category oldCategory, Category newCategory) async {
+    oldCategory.name = newCategory.name;
+    oldCategory.iconCodepoint = newCategory.iconCodepoint;
+    oldCategory.colorValue = newCategory.colorValue;
+    await oldCategory.save();
+  }
 
-  // ✨ FIX: Renamed from _addDefaultCategories to addDefaultCategories
+  Future<void> deleteCategory(Category category) async {
+    await category.delete();
+  }
+
   Future<void> addDefaultCategories() async {
     if (_categoryBox.isEmpty) {
-      await addCategory(Category(name: 'Food', iconCodepoint: Icons.fastfood.codePoint, colorValue: Colors.orange.toARGB32()));
-      await addCategory(Category(name: 'Transport', iconCodepoint: Icons.directions_car.codePoint, colorValue: Colors.blue.toARGB32()));
-      await addCategory(Category(name: 'Shopping', iconCodepoint: Icons.shopping_bag.codePoint, colorValue: Colors.purple.toARGB32()));
-      await addCategory(Category(name: 'Bills', iconCodepoint: Icons.receipt_long.codePoint, colorValue: Colors.red.toARGB32()));
-      await addCategory(Category(name: 'Entertainment', iconCodepoint: Icons.movie.codePoint, colorValue: Colors.pink.toARGB32()));
-      await addCategory(Category(name: 'Groceries', iconCodepoint: Icons.local_grocery_store.codePoint, colorValue: Colors.green.toARGB32()));
-      await addCategory(Category(name: 'Health', iconCodepoint: Icons.medical_services.codePoint, colorValue: Colors.teal.toARGB32()));
-      await addCategory(Category(name: 'Salary', iconCodepoint: Icons.attach_money.codePoint, colorValue: Colors.lightGreen.toARGB32()));
-      await addCategory(Category(name: 'Uncategorized', iconCodepoint: Icons.category.codePoint, colorValue: Colors.grey.toARGB32()));
+      // ✨ FIX: Changed .toARGB32() to the correct .value property for all colors
+      await addCategory(Category(name: 'Food', iconCodepoint: Icons.fastfood.codePoint, colorValue: Colors.orange.value));
+      await addCategory(Category(name: 'Transport', iconCodepoint: Icons.directions_car.codePoint, colorValue: Colors.blue.value));
+      await addCategory(Category(name: 'Shopping', iconCodepoint: Icons.shopping_bag.codePoint, colorValue: Colors.purple.value));
+      await addCategory(Category(name: 'Bills', iconCodepoint: Icons.receipt_long.codePoint, colorValue: Colors.red.value));
+      await addCategory(Category(name: 'Entertainment', iconCodepoint: Icons.movie.codePoint, colorValue: Colors.pink.value));
+      await addCategory(Category(name: 'Groceries', iconCodepoint: Icons.local_grocery_store.codePoint, colorValue: Colors.green.value));
+      await addCategory(Category(name: 'Health', iconCodepoint: Icons.medical_services.codePoint, colorValue: Colors.teal.value));
+      await addCategory(Category(name: 'Salary', iconCodepoint: Icons.attach_money.codePoint, colorValue: Colors.lightGreen.value));
+      await addCategory(Category(name: 'Uncategorized', iconCodepoint: Icons.category.codePoint, colorValue: Colors.grey.value));
     }
   }
   
@@ -80,8 +97,10 @@ class DatabaseService {
   }
   
   Category getUncategorizedCategory() {
-      return _categoryBox.values.firstWhere((c) => c.name == 'Uncategorized', orElse: () => Category(name: 'Uncategorized', iconCodepoint: Icons.category.codePoint, colorValue: Colors.grey.toARGB32()));
+      return _categoryBox.values.firstWhere((c) => c.name == 'Uncategorized', orElse: () => Category(name: 'Uncategorized', iconCodepoint: Icons.category.codePoint, colorValue: Colors.grey.value));
   }
+
+  // --- Transaction Methods ---
 
   List<Transaction> getTransactions() {
     final transactions = _transactionBox.values.toList();
@@ -146,5 +165,52 @@ class DatabaseService {
       }
     }
     _updateBalanceForNewTransaction(newTransaction);
+  }
+
+  Future<void> deleteTransaction(Transaction transaction) async {
+    if (transaction.type == TransactionType.transfer) {
+      final fromAccount = _accountBox.get(transaction.accountKey);
+      final toAccount = _accountBox.get(transaction.toAccountKey);
+      if (fromAccount != null) {
+        fromAccount.balance += transaction.amount;
+        fromAccount.save();
+      }
+      if (toAccount != null) {
+        toAccount.balance -= transaction.amount;
+        toAccount.save();
+      }
+    } else {
+      final account = _accountBox.get(transaction.accountKey);
+      if (account != null) {
+        if (transaction.type == TransactionType.expense) {
+          account.balance += transaction.amount;
+        } else {
+          account.balance -= transaction.amount;
+        }
+        account.save();
+      }
+    }
+    await transaction.delete();
+  }
+
+  List<Transaction> detectSubscriptions() {
+    final transactions = getTransactions().where((tx) => tx.type == TransactionType.expense).toList();
+    Map<String, List<Transaction>> groupedByTitle = {};
+
+    for (var tx in transactions) {
+      if (groupedByTitle[tx.title] == null) {
+        groupedByTitle[tx.title] = [];
+      }
+      groupedByTitle[tx.title]!.add(tx);
+    }
+
+    List<Transaction> subscriptions = [];
+    groupedByTitle.forEach((title, txList) {
+      if (txList.length > 1) {
+        subscriptions.add(txList.first);
+      }
+    });
+
+    return subscriptions;
   }
 }
